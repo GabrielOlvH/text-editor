@@ -1,0 +1,96 @@
+import { LineEdit, VerticalBox, ScrollView } from "std-widgets.slint";
+
+
+export struct FileTreeItemData {
+    name: string,
+    ident: int,
+    index: int,
+    full-path: string,
+    open: bool,
+    type: string
+}
+
+export component FileTreeItem inherits Rectangle {
+    in-out property <string> text;
+    in property <int> ident;
+    property <int> spacing-size: 16;
+    in-out property <FileTreeItemData> file;
+
+    callback clicked();
+
+    TouchArea {
+        height: 16px;
+
+        clicked => {
+            root.clicked();
+        }
+
+        states [
+            active when !self.has-hover && file.open: {
+                rect.background: darkgray;
+            }
+            active when self.has-hover: {
+                rect.background: gray;
+            }
+        ]
+
+        rect := Rectangle {
+            border-radius: 5px;
+            x: 0;
+            height: 22px;
+            img := Image {
+                x: ident * 16px + 5px;
+                width: 16px;
+                height: 16px;
+                init => {
+                    if (file.type == "folder") {
+                        self.source = @image-url("icons/folder.png");
+                    } else {
+                        self.source = @image-url("icons/file.png");
+                    }
+                }
+            }
+
+            input := TextInput {
+                y: 4px;
+                font-family: "Consolas";
+                font-size: 15px;
+                x: ident * 16px + 20px + 5px;
+                enabled: false;
+                text: root.text;
+                init => {
+                    root.width = self.x + self.width - 20px;
+                }
+            }
+        }
+    }
+}
+
+export component FileTree inherits Rectangle {
+opacity:  90%;
+    in-out property <[FileTreeItemData]> files;
+    callback clicked(int);
+    background: dimgrey;
+    border-radius: 5px;
+
+    scroll := ScrollView {
+        width: root.width;
+        height: root.height - 12px;
+
+        VerticalBox {
+
+            spacing: 3px;
+            for file in files: FileTreeItem {
+                text: file.name;
+                ident: file.ident;
+                file: file;
+                min-height: 18px;
+                max-height: 18px;
+                width: root.width - 28px;
+                clicked => {
+                    root.clicked(file.index);
+                }
+            }
+        }
+    }
+}

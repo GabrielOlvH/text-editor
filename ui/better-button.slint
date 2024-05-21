@@ -1,0 +1,16 @@
+
+export component BetterButton inherits TouchArea {
+    in property<image> img;
+    in property<image> hover: img;
+
+    states [
+        active when self.has-hover: {
+            icon.source: hover;
+        }
+    ]
+    icon := Image {
+        width: root.width;
+        height: root.height;
+        source: img;
+    }
+}

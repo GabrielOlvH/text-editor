@@ -1,0 +1,59 @@
+import { Button, HorizontalBox, VerticalBox, TextEdit, ListView, StandardListView } from "std-widgets.slint";
+import { BetterButton } from "better-button.slint";
+
+export component TitleBar inherits TouchArea {
+    callback mouse_move(length, length);
+    callback close();
+    callback maximize();
+    height: 28px;
+    y: 0;
+    moved => {
+        root.mouse_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
+    }
+    Rectangle {
+        opacity: 90%;
+        x: 8px;
+        y: 8px;
+        background: dimgrey;
+        border-radius: 5px;
+        width: 16px * 4;
+        height: 38px;
+        HorizontalBox {
+            y: 0;
+            @children
+        }
+    }
+
+    BetterButton {
+        img: @image-url("icons/close.png");
+        width: 12px;
+        height: 12px;
+        y: 12px;
+        x: root.width - 12px - 12px;
+        clicked => {
+            root.close();
+        }
+    }
+
+    BetterButton {
+        img: @image-url("icons/maximize.png");
+        width: 12px;
+        height: 12px;
+        y: 12px;
+        x: root.width - 12px - 12px - 12px - 8px;
+        clicked => {
+            root.maximize();
+        }
+    }
+
+    BetterButton {
+        img: @image-url("icons/minimize.png");
+        width: 12px;
+        height: 12px;
+        y: 12px;
+        x: root.width - 12px - 12px - 12px - 8px - 12px - 8px;
+        clicked => {
+            root.maximize();
+        }
+    }
+}

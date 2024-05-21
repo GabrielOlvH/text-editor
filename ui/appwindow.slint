@@ -1,0 +1,110 @@
+import { Button, HorizontalBox, VerticalBox, TextEdit, ListView, StandardListView } from "std-widgets.slint";
+import { FileTree, FileTreeItemData } from "./file-tree.slint";
+import { BetterButton } from "better-button.slint";
+import { TitleBar } from "title-bar.slint";
+
+
+export component AppWindow inherits Window {
+    in-out property <[FileTreeItemData]> files;
+    callback open-file(string);
+    callback new-file();
+    callback edited(string);
+    callback rename-file(string) -> string;
+    callback delete-file(string);
+
+    callback clicked <=> file-tree.clicked;
+
+    callback close <=> title-bar.close;
+    callback maximize <=> title-bar.maximize;
+    callback mouse_move <=> title-bar.mouse_move;
+
+    public function set-open-file(name: string, content: string) {
+        name-edit.text = name;
+        edit.text = content;
+        root.title = "editing " + name;
+    }
+
+    public function get-current-box() -> string {
+        return edit.text;
+    }
+    default-font-family: "Consolas";
+    no-frame: true;
+
+    Rectangle {
+        clip: true;
+        border-radius: 13px;
+        min-width: 800px;
+        background: #1C1C1C;
+
+        preferred-width: 900px;
+        preferred-height: 400px;
+    }
+
+    background: transparent;
+    preferred-width: 900px;
+    preferred-height: 400px;
+    min-height: 400px;
+
+
+    HorizontalBox {
+        padding: 0;
+
+        VerticalBox {
+
+            alignment: end;
+            max-width: 250px;
+            file-tree := FileTree {
+                files: root.files;
+                max-height: root.height - 54px;
+                preferred-height: root.height - 54px;
+            }
+        }
+
+        VerticalBox {
+            padding-top: 18px;
+            alignment: center;
+            name-edit := TextInput {
+                edited => {
+                    self.text = root.rename-file(name-edit.text);
+                }
+                font-size: 20px;
+            }
+
+            edit := TextEdit {
+
+                opacity: 100%;
+                edited => {
+                    root.edited(self.text);
+                }
+                height: root.height - 54px;
+
+                has-focus: false;
+
+                font-size: 18px;
+            }
+        }
+    }
+
+    title-bar := TitleBar {
+        BetterButton {
+            height: 20px;
+            width: 20px;
+            img: @image-url("icons/add.png");
+            hover: @image-url("icons/add-hover.png");
+            clicked => {
+                root.new-file();
+            }
+        }
+
+        BetterButton {
+
+            height: 20px;
+            width: 20px;
+            img: @image-url("icons/trash.png");
+            hover: @image-url("icons/trash-hover.png");
+            clicked => {
+                //root.new-file();
+            }
+        }
+    }
+}

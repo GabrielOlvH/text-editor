@@ -2,21 +2,27 @@ import { Button, HorizontalBox, VerticalBox, TextEdit, ListView, StandardListVie
 import { FileTree, FileTreeItemData } from "./file-tree.slint";
 import { BetterButton } from "better-button.slint";
 import { TitleBar } from "title-bar.slint";
+import { FindWindow, SearchResult, Results } from "find-window.slint";
 
 
 export component AppWindow inherits Window {
     in-out property <[FileTreeItemData]> files;
-    callback open-file(string);
-    callback new-file();
-    callback edited(string);
-    callback rename-file(string) -> string;
-    callback delete-file(string);
 
-    callback clicked <=> file-tree.clicked;
+    public function set-search-results(results: [SearchResult]) {
+        Results.results = results;
+    }
 
-    callback close <=> title-bar.close;
-    callback maximize <=> title-bar.maximize;
-    callback mouse_move <=> title-bar.mouse_move;
+    public function get-search-results() -> [SearchResult] {
+        return Results.results;
+    }
+
+    public function show-search-popup() {
+        find-window.show();
+    }
+
+    public function hide-search-popup() {
+        find-window.close();
+    }
 
     public function set-open-file(name: string, content: string) {
         name-edit.text = name;
@@ -27,83 +33,161 @@ export component AppWindow inherits Window {
     public function get-current-box() -> string {
         return edit.text;
     }
+
+    public function highlight(start: int, end: int) {
+        edit.set-selection-offsets(start, end);
+    }
+
+    // File operations callbacks
+    callback open-file(string);
+    callback new-file();
+    callback edited(string);
+    callback rename-file(string) -> string;
+    callback delete-file(string);
+
+    callback clicked <=> file-tree.clicked;
+
+    // Shortcut callbacks
+    callback process-shortcut(KeyEvent);
+
+    // Search callbacks
+    callback search(bool, bool, bool, bool, string);
+    callback close-search();
+
+    callback move-down-result() -> int;
+    callback enter-callback();
+    callback clicked-result-callback();
+
+    // Title bar callbacks
+    callback close <=> title-bar.close;
+    callback maximize <=> title-bar.maximize;
+    callback mouse_move <=> title-bar.mouse_move;
+
     default-font-family: "Consolas";
     no-frame: true;
 
-    Rectangle {
-        clip: true;
-        border-radius: 13px;
-        min-width: 800px;
-        background: #1C1C1C;
-
-        preferred-width: 900px;
-        preferred-height: 400px;
-    }
-
     background: transparent;
     preferred-width: 900px;
+
     preferred-height: 400px;
     min-height: 400px;
 
-
-    HorizontalBox {
-        padding: 0;
-
-        VerticalBox {
-
-            alignment: end;
-            max-width: 250px;
-            file-tree := FileTree {
-                files: root.files;
-                max-height: root.height - 54px;
-                preferred-height: root.height - 54px;
+    focus-scope := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Escape) {
+                find-window.close();
+            } else {
+                root.process-shortcut(event);
             }
+            accept;
         }
 
-        VerticalBox {
-            padding-top: 18px;
-            alignment: center;
-            name-edit := TextInput {
-                edited => {
-                    self.text = root.rename-file(name-edit.text);
+        find-window := PopupWindow {
+            width: 500px;
+            height: 300px;
+            x: root.x + root.width / 2 - 250px;
+            y: root.y + root.height / 2 - 150px;
+            close-on-click: false;
+            Rectangle {
+                border-radius: 13px;
+                background: transparent;
+                drop-shadow-color: black;
+                drop-shadow-blur: 5px;
+                drop-shadow-offset-x: 1px;
+                drop-shadow-offset-y: 1px;
+
+                search := FindWindow {
+                    close-search => {
+                        close-search();
+                    }
+                    enter-callback => {
+                        enter-callback();
+                    }
+                    clicked-result-callback => {
+                        clicked-result-callback();
+                    }
+                    move-down-result => {
+                        return move-down-result();
+                    }
+
+                    search(a, b, c, d, e) => {
+                        root.search(a, b, c, d, e);
+                    }
                 }
-                font-size: 20px;
             }
+        }
 
-            edit := TextEdit {
+        Rectangle {
+            clip: true;
+            border-radius: 13px;
+            min-width: 800px;
+            background: #1C1C1C;
 
-                opacity: 100%;
-                edited => {
-                    root.edited(self.text);
+            preferred-width: 900px;
+            preferred-height: 400px;
+        }
+
+        HorizontalBox {
+            padding: 0;
+
+            VerticalBox {
+
+                alignment: end;
+                max-width: 250px;
+                file-tree := FileTree {
+                    files: root.files;
+                    max-height: root.height - 54px;
+                    preferred-height: root.height - 54px;
                 }
-                height: root.height - 54px;
+            }
 
-                has-focus: false;
+            VerticalBox {
+                padding-top: 18px;
+                alignment: center;
+                name-edit := TextInput {
 
-                font-size: 18px;
+                    edited => {
+                        self.text = root.rename-file(name-edit.text);
+                    }
+                    font-size: 20px;
+                }
+
+                edit := TextEdit {
+
+                    opacity: 100%;
+                    edited => {
+
+                        root.edited(self.text);
+                    }
+                    height: root.height - 54px;
+
+                    has-focus: false;
+
+                    font-size: 18px;
+                }
             }
         }
-    }
 
-    title-bar := TitleBar {
-        BetterButton {
-            height: 20px;
-            width: 20px;
-            img: @image-url("icons/add.png");
-            hover: @image-url("icons/add-hover.png");
-            clicked => {
-                root.new-file();
+        title-bar := TitleBar {
+            BetterButton {
+                height: 20px;
+                width: 20px;
+                img: @image-url("icons/add.png");
+                hover: @image-url("icons/add-hover.png");
+                clicked => {
+                    root.new-file();
+                }
             }
-        }
 
-        BetterButton {
+            BetterButton {
 
-            height: 20px;
-            width: 20px;
-            img: @image-url("icons/trash.png");
-            hover: @image-url("icons/trash-hover.png");
-            clicked => {
-                //root.new-file();
+                height: 20px;
+                width: 20px;
+                img: @image-url("icons/trash.png");
+                hover: @image-url("icons/trash-hover.png");
+                clicked => {
+                    //root.new-file();
+            }
             }
         }
     }

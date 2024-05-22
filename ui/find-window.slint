@@ -1,0 +1,166 @@
+import { Button, HorizontalBox, VerticalBox, TextEdit, ListView, CheckBox, ScrollView } from "std-widgets.slint";
+
+
+export struct SearchResult {
+    file_path: string,
+    line_matched: string,
+    match_name: bool,
+    match_contents: bool,
+    selected: bool,
+    start: int,
+    end: int,
+    }
+
+
+export global Results {
+    in-out property <[SearchResult]> results;
+}
+
+export component FindWindow inherits Rectangle {
+    callback search(bool, bool, bool, bool, string);
+    callback enter-callback();
+    callback move-down-result() -> int;
+    callback clicked-result-callback();
+
+    callback close-search();
+    cache-rendering-hint: false;
+
+    function update() {
+        Results.results = [];
+        scroll.viewport_y = 0;
+        search(match-file-names.checked, match-file-contents.checked, match-case.checked, match-regex.checked, search-term.text);
+    }
+
+    background: #1C1C1C;
+    border-radius: 13px;
+    drop-shadow-color: black;
+    drop-shadow-blur: 5px;
+    drop-shadow-offset-x: -1px;
+    drop-shadow-offset-y: -1px;
+
+    FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Escape) {
+                close-search();
+            } else if (event.text == Key.Tab) {
+
+                scroll.viewport_y = min(move-down-result() * -88px, scroll.viewport_height);
+            } else if (event.text == Key.Return) {
+                enter-callback();
+            }
+            accept;
+        }
+        VerticalBox {
+            Text {
+                font-size: 14px;
+                text: "Search in all files";
+            }
+
+            Rectangle {
+
+                height: 36px;
+                border-radius: 5px;
+                background: #2c2c2c;
+                search-term := TextInput {
+                    accepted => {
+                        debug("accepted!!");
+                        enter-callback();
+                    }
+                    init => {
+                        self.focus();
+                    }
+                    x: 6px;
+                    y: 10px;
+                    font-size: 18px;
+                    edited => {
+                        update();
+                    }
+                }
+            }
+
+            HorizontalBox {
+                match-file-names := CheckBox {
+                    text: "File names";
+                    checked: true;
+                    toggled => {
+                        update();
+                    }
+                }
+
+                match-file-contents := CheckBox {
+                    text: "File contents";
+                    checked: true;
+                    toggled => {
+                        update();
+                    }
+                }
+
+                match-case := CheckBox {
+                    text: "Match case";
+                    checked: false;
+                    toggled => {
+                        update();
+                    }
+                }
+
+                match-regex := CheckBox {
+                    text: "Regex";
+                    checked: false;
+                    toggled => {
+                        update();
+                    }
+                }
+            }
+
+            Rectangle {
+
+                background: #2c2c2c;
+                border-radius: 5px;
+
+                scroll := ScrollView {
+
+                    VerticalBox {
+                        Text {
+                            text: Results.results.length == 0 ? "No results :(" : "";
+                            height: Results.results.length == 0 ? 18px : 0px;
+                        }
+
+                        for result in Results.results: Rectangle {
+
+                            height: 80px;
+                            background: result.selected ? #4D4D4D : #1A1A1A;
+
+                            border-radius: 5px;
+
+                            VerticalBox {
+                                Text {
+                                    font-family: "Consolas";
+                                    font-size: 15px;
+                                    text: result.file_path;
+                                }
+
+                                Rectangle {
+                                    border-radius: 5px;
+                                    background: result.selected ? #5F5F5F : #1D1D1D;
+                                    Text {
+                                        x: 8px;
+
+                                        font-size: 16px;
+                                        font-family: "Consolas";
+                                        init => {
+                                            if (result.match_name) {
+                                                self.text = "File name: " + result.file_path;
+                                            } else {
+                                                self.text = result.line_matched;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

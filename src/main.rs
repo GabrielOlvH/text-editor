@@ -1,12 +1,19 @@
 mod cache;
 mod hooks;
+mod search_hooks;
 
 use std::arch::x86_64::_xgetbv;
 use std::cell::{RefCell, RefMut};
+use std::cmp::{max, min};
 use std::rc::Rc;
 use slint::{CloseRequestResponse, Model, SharedString, VecModel, Weak};
+use log::log;
+use regex::Regex;
+use slint::platform::Key;
+use slint::private_unstable_api::re_exports::{KeyboardModifiers, KeyEvent};
 use crate::cache::Database;
 use crate::hooks::{handle_click_file_tree, handle_delete, handle_new_file_button, handle_rename, handle_textbox_edit};
+use crate::search_hooks::{on_move_down, on_pressed_enter, on_search};
 
 slint::include_modules!();
 
@@ -26,45 +33,67 @@ fn main() -> Result<(), slint::PlatformError> {
     handle_textbox_edit(ui.as_weak());
     handle_click_file_tree(Rc::clone(&db), model.clone(), ui.as_weak());
     handle_new_file_button(Rc::clone(&db), model.clone(), ui.as_weak());
-    handle_close(Rc::clone(&db), ui.as_weak());
+    handle_window_events(Rc::clone(&db), ui.as_weak());
     handle_rename(Rc::clone(&db), model.clone(), ui.as_weak());
     handle_delete(Rc::clone(&db), model.clone(), ui.as_weak());
 
 
-    let weak = ui.as_weak();
-    weak.unwrap().on_mouse_move(move |delta_x, delta_y| {
-        let pin_win_clone = weak.unwrap();
-        let logical_pos = pin_win_clone.window().position().to_logical(pin_win_clone.window().scale_factor());
-        pin_win_clone.window().set_position(slint::LogicalPosition::new(logical_pos.x + delta_x, logical_pos.y + delta_y));
-    });
+    on_search(Rc::clone(&db), ui.as_weak());
+    on_pressed_enter(Rc::clone(&db), ui.as_weak());
+    on_move_down(Rc::clone(&db), ui.as_weak());
 
-    let weak = ui.as_weak();
-    weak.unwrap().on_close(move || {
-        let pin_win_clone = weak.unwrap();
-        pin_win_clone.window().hide();
+    let ui_handle = ui.as_weak();
+    ui_handle.unwrap().on_close(move || {
+        let ui = ui_handle.unwrap();
+        ui.window().hide();
         println!("Window close requested");
-        open_file(&mut db.borrow_mut(), weak.clone(), None);
+        open_file(&mut db.borrow_mut(), ui_handle.clone(), None);
         db.borrow().save_all().expect("Failed to save all files on exit!");
     });
 
-
-    let weak = ui.as_weak();
-    weak.unwrap().on_maximize(move || {
-        let pin_win_clone = weak.unwrap();
-        pin_win_clone.window().set_maximized(!pin_win_clone.window().is_maximized());
+    let ui_handle = ui.as_weak();
+    ui_handle.unwrap().on_process_shortcut(move |event: KeyEvent| {
+        let ui = ui_handle.unwrap();
+        println!("received {}",event.text);
+        if event.modifiers.control && event.text.eq_ignore_ascii_case("t") {
+            ui.invoke_show_search_popup();
+        }
     });
+    let ui_handle = ui.as_weak();
+    ui_handle.unwrap().on_close_search(move || {
+        let ui = ui_handle.unwrap();
+        ui.invoke_hide_search_popup();
+    });
+
+
+
 
     ui.run()
 }
 
 
 
-fn handle_close(db: Rc<RefCell<Database>>, ui_handle: Weak<AppWindow>) {
+
+fn handle_window_events(db: Rc<RefCell<Database>>, weak: Weak<AppWindow>) {
+    let ui_handle = weak.clone();
     ui_handle.unwrap().window().on_close_requested(move || {
         println!("Window close requested");
         open_file(&mut db.borrow_mut(), ui_handle.clone(), None);
         db.borrow().save_all().expect("Failed to save all files on exit!");
         return CloseRequestResponse::HideWindow;
+    });
+    let ui_handle = weak.clone();
+    ui_handle.unwrap().on_mouse_move(move |delta_x, delta_y| {
+        let pin_win_clone = ui_handle.unwrap();
+        let logical_pos = pin_win_clone.window().position().to_logical(pin_win_clone.window().scale_factor());
+        pin_win_clone.window().set_position(slint::LogicalPosition::new(logical_pos.x + delta_x, logical_pos.y + delta_y));
+    });
+
+
+    let ui_handle = weak.clone();
+    ui_handle.unwrap().on_maximize(move || {
+        let pin_win_clone = ui_handle.unwrap();
+        pin_win_clone.window().set_maximized(!pin_win_clone.window().is_maximized());
     });
 }
 

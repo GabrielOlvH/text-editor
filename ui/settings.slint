@@ -1,0 +1,111 @@
+import { Button, HorizontalBox, VerticalBox, TextEdit, ListView, StandardListView } from "std-widgets.slint";
+import { ChangeTheme } from "change-theme.slint";
+import { Themes, Pallete } from "styling.slint";
+
+component SelectFileWidget inherits HorizontalBox {
+    callback open-file-selecion-dialog() -> string;
+    alignment: space-between;
+    spacing: 0;
+    padding: 0;
+    Rectangle {
+        background: Themes.selected.highlight-color;
+        border-top-left-radius: 5px;
+        border-bottom-left-radius: 5px;
+        width: 75%;
+
+        path := Text {
+            width: 90%;
+            x: 8px;
+            y: 1px;
+            color: Themes.selected.font-color;
+            font-family: "Consolas";
+            font-size: 12px;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+            overflow: elide;
+            text: "path";
+            height: 25px;
+        }
+    }
+
+    TouchArea {
+        width: 25%;
+        height: 25px;
+        clicked => {
+            path.text = open-file-selecion-dialog();
+        }
+        mouse-cursor: pointer;
+        Rectangle {
+            background: Themes.selected.secondary-color;
+
+            border-top-right-radius: 5px;
+            border-bottom-right-radius: 5px;
+
+            Text {
+                color: Themes.selected.font-color;
+                text: "Browse";
+            }
+        }
+    }
+}
+
+export component Settings inherits Rectangle {
+    callback close-popups();
+    callback open-background-image-selection-dialog() -> string;
+    callback open-working-directory-selection-dialog() -> string;
+
+    border-radius: 13px;
+    background: Themes.selected.primary-color;
+    clip: true;
+    min-width: 400px;
+    preferred-width: 400px;
+    min-height: 100px;
+     FocusScope {
+                key-pressed(event) => {
+                    if (event.text == Key.Escape) {
+                        close-popups();
+                    }
+                    accept;
+                }
+    VerticalBox {
+        spacing: 18px;
+        Text {
+            color: Themes.selected.font-color;
+            font-family: "Consolas";
+            text: "Settings";
+        }
+
+        VerticalBox {
+            padding: 0;
+
+            Text {
+                color: Themes.selected.font-color;
+                font-family: "Consolas";
+                text: "Working Directory";
+            }
+
+            SelectFileWidget {
+                open-file-selecion-dialog => {
+                    return open-working-directory-selection-dialog();
+                }
+            }
+        }
+
+        ChangeTheme { }
+
+        VerticalBox {
+            padding: 0;
+            Text {
+                color: Themes.selected.font-color;
+                text: "Background image";
+            }
+
+            SelectFileWidget {
+                open-file-selecion-dialog => {
+                    return open-background-image-selection-dialog();
+                }
+            }
+        }
+    }
+}
+}

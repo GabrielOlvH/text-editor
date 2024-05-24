@@ -1,0 +1,22 @@
+export struct Pallete {
+    name: string,
+    primary-color: brush,
+    secondary-color: brush,
+    highlight-color: brush,
+    font-color: brush,
+    background-image: image
+}
+
+export global Themes {
+    out property <Pallete> default: { name: "Default", primary-color: #1C1C1C, secondary-color: #2C2C2C, highlight-color: #4D4D4D, font-color: Colors.white };
+    out property <Pallete> light: { name: "Light", primary-color: #CCCCCC, secondary-color: #DCDCDC, highlight-color: #FDFDFD, font-color: Colors.black };
+    out property <Pallete> contrast: { name: "Contrast", primary-color: Colors.black, secondary-color: Colors.gray, highlight-color: Colors.white, font-color: Colors.white};
+    out property <Pallete> green: { name: "Green", primary-color: #658A6E, secondary-color: #D6FB97, highlight-color: #C9A77B, font-color: Colors.black };
+    out property <Pallete> megatron: { name: "Megatron", primary-color: #9c998e, secondary-color: #bab6a4, highlight-color: #b8b7b4, font-color: Colors.black };
+
+    public pure function opacity(color: brush, opacity: float) -> brush {
+        return rgba(color.red, color.blue, color.green, opacity);
+    }
+
+    in-out property <Pallete> selected: default;
+}

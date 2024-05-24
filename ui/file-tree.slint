@@ -1,4 +1,5 @@
-import { LineEdit, VerticalBox, ScrollView } from "std-widgets.slint";
+import { LineEdit, VerticalBox, HorizontalBox, ScrollView } from "std-widgets.slint";
+import { Themes } from "styling.slint";
 
 
 export struct FileTreeItemData {
@@ -7,8 +8,7 @@ export struct FileTreeItemData {
     index: int,
     full-path: string,
     open: bool,
-    type: string
-}
+    type: string}
 
 export component FileTreeItem inherits Rectangle {
     in-out property <string> text;
@@ -30,15 +30,17 @@ export component FileTreeItem inherits Rectangle {
                 rect.background: darkgray;
             }
             active when self.has-hover: {
-                rect.background: gray;
+                rect.background: Themes.selected.highlight-color;
             }
         ]
 
         rect := Rectangle {
+            animate background { duration: 250ms; }
             border-radius: 5px;
             x: 0;
             height: 22px;
             img := Image {
+                colorize: Themes.selected.font-color;
                 x: ident * 16px + 5px;
                 width: 16px;
                 height: 16px;
@@ -53,6 +55,7 @@ export component FileTreeItem inherits Rectangle {
 
             input := TextInput {
                 y: 4px;
+                color: Themes.selected.font-color;
                 font-family: "Consolas";
                 font-size: 15px;
                 x: ident * 16px + 20px + 5px;
@@ -67,10 +70,11 @@ export component FileTreeItem inherits Rectangle {
 }
 
 export component FileTree inherits Rectangle {
-opacity:  90%;
+    opacity: 90%;
     in-out property <[FileTreeItemData]> files;
     callback clicked(int);
-    background: dimgrey;
+    background: Themes.selected.secondary-color;
+    animate background { duration: 250ms; }
     border-radius: 5px;
 
     scroll := ScrollView {

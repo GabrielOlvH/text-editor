@@ -1,0 +1,104 @@
+import { Themes, Pallete } from "styling.slint";
+
+component ThemeDisplay inherits VerticalLayout {
+    in property <Pallete> theme;
+    callback clicked();
+    width: 64px;
+    height: 64px;
+    spacing: 5px;
+
+    Rectangle {
+        drop-shadow-color: black;
+        drop-shadow-blur: 2px;
+        drop-shadow-offset-x: -1px;
+        drop-shadow-offset-y: -1px;
+        clip: true;
+        border-radius: 5px;
+        ta := TouchArea {
+            states [
+                active when ta.has-hover: {
+                    primary.background: theme.highlight-color;
+                    secondary.background: theme.highlight-color;
+                    in {
+                        animate primary.background, secondary.background { duration: 250ms; }
+                    }
+                }
+            ]
+            clicked => {
+                Themes.selected = {
+                    name: "Custom",
+                    primary-color: theme.primary-color,
+                    secondary-color: theme.secondary-color,
+                    highlight-color: theme.highlight-color,
+                    font-color: theme.font-color
+                };
+
+                clicked();
+            }
+
+            primary := Rectangle {
+                width: 32px;
+                x: 0;
+                background: theme.primary-color;
+            }
+
+            secondary := Rectangle {
+                width: 32px;
+                x: 32px;
+                background: theme.secondary-color;
+            }
+        }
+    }
+
+    Text {
+        color: Themes.selected.font-color;
+        horizontal-alignment: center;
+        text: theme.name;
+    }
+}
+
+export component ChangeTheme inherits Rectangle {
+
+
+
+    VerticalLayout {
+        alignment: start;
+        spacing: 10px;
+        Text {
+            color: Themes.selected.font-color;
+            font-family: "Consolas";
+            font-size: 12px;
+            text: "Themes";
+        }
+
+        GridLayout {
+            spacing: 18px;
+            Row {
+                ThemeDisplay {
+                    theme: Themes.default;
+                }
+
+                ThemeDisplay {
+                    theme: Themes.light;
+                }
+
+                ThemeDisplay {
+                    theme: Themes.contrast;
+                }
+                ThemeDisplay {
+                                    theme: Themes.green;
+                                }
+            }
+
+            Row {
+
+
+                ThemeDisplay {
+                    theme: Themes.megatron;
+                }
+
+
+            }
+        }
+    }
+}

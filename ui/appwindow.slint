@@ -3,7 +3,8 @@ import { FileTree, FileTreeItemData } from "./file-tree.slint";
 import { BetterButton } from "better-button.slint";
 import { TitleBar } from "title-bar.slint";
 import { FindWindow, SearchResult, Results } from "find-window.slint";
-
+import { Themes } from "styling.slint";
+import { Settings } from "settings.slint";
 
 export component AppWindow inherits Window {
     in-out property <[FileTreeItemData]> files;
@@ -20,14 +21,16 @@ export component AppWindow inherits Window {
         find-window.show();
     }
 
-    public function hide-search-popup() {
+    public function hide-popups() {
         find-window.close();
+        theme-window.close();
     }
 
     public function set-open-file(name: string, content: string) {
         name-edit.text = name;
         edit.text = content;
         root.title = "editing " + name;
+        edit.viewport_y = 0;
     }
 
     public function get-current-box() -> string {
@@ -36,6 +39,10 @@ export component AppWindow inherits Window {
 
     public function highlight(start: int, end: int) {
         edit.set-selection-offsets(start, end);
+    }
+
+    public function set-background-image(img: image) {
+        Themes.selected.background-image = img;
     }
 
     // File operations callbacks
@@ -52,7 +59,7 @@ export component AppWindow inherits Window {
 
     // Search callbacks
     callback search(bool, bool, bool, bool, string);
-    callback close-search();
+    callback close-popups();
 
     callback move-down-result() -> int;
     callback enter-callback();
@@ -62,6 +69,10 @@ export component AppWindow inherits Window {
     callback close <=> title-bar.close;
     callback maximize <=> title-bar.maximize;
     callback mouse_move <=> title-bar.mouse_move;
+
+    // Settings callbacks
+    callback open-background-image-selection-dialog() -> string;
+    callback open-working-directory-selection-dialog() -> string;
 
     default-font-family: "Consolas";
     no-frame: true;
@@ -76,6 +87,8 @@ export component AppWindow inherits Window {
         key-pressed(event) => {
             if (event.text == Key.Escape) {
                 find-window.close();
+
+                theme-window.close();
             } else {
                 root.process-shortcut(event);
             }
@@ -98,7 +111,7 @@ export component AppWindow inherits Window {
 
                 search := FindWindow {
                     close-search => {
-                        close-search();
+                        close-popups();
                     }
                     enter-callback => {
                         enter-callback();
@@ -117,21 +130,55 @@ export component AppWindow inherits Window {
             }
         }
 
+        theme-window := PopupWindow {
+
+            x: root.x + 250px;
+            y: root.y + 18px;
+            close-on-click: false;
+            Rectangle {
+
+                border-radius: 13px;
+                background: transparent;
+                drop-shadow-color: black;
+                drop-shadow-blur: 5px;
+                drop-shadow-offset-x: 1px;
+                drop-shadow-offset-y: 1px;
+                change-theme := Settings {
+                    close-popups => {
+                        close-popups();
+                    }
+                    open-background-image-selection-dialog => {
+                        return root.open-background-image-selection-dialog();
+                    }
+
+                    open-working-directory-selection-dialog => {
+                        return root.open-working-directory-selection-dialog();
+                    }
+                }
+            }
+        }
+
         Rectangle {
+            animate background { duration: 250ms; }
             clip: true;
             border-radius: 13px;
             min-width: 800px;
-            background: #1C1C1C;
+            background: Themes.selected.primary-color;
 
             preferred-width: 900px;
             preferred-height: 400px;
+            Image {
+                opacity: 50%;
+                width: root.width;
+                height: root.height;
+                source: Themes.selected.background-image;
+            }
         }
 
         HorizontalBox {
             padding: 0;
 
             VerticalBox {
-
                 alignment: end;
                 max-width: 250px;
                 file-tree := FileTree {
@@ -150,44 +197,60 @@ export component AppWindow inherits Window {
                         self.text = root.rename-file(name-edit.text);
                     }
                     font-size: 20px;
+                    color: Themes.selected.font-color;
                 }
 
                 edit := TextEdit {
-
                     opacity: 100%;
                     edited => {
 
                         root.edited(self.text);
                     }
                     height: root.height - 54px;
-
                     has-focus: false;
-
-                    font-size: 18px;
+                    font-size: 15px;
                 }
             }
         }
 
         title-bar := TitleBar {
-            BetterButton {
-                height: 20px;
-                width: 20px;
-                img: @image-url("icons/add.png");
-                hover: @image-url("icons/add-hover.png");
-                clicked => {
-                    root.new-file();
+            HorizontalBox {
+                width: 100%;
+                padding: 0;
+                alignment: space-between;
+                HorizontalBox {
+                    padding: 0;
+                    BetterButton {
+                        height: 20px;
+                        width: 20px;
+                        img: @image-url("icons/add.png");
+                        hover: @image-url("icons/add-hover.png");
+                        clicked => {
+                            root.new-file();
+                        }
+                    }
+
+                    BetterButton {
+
+                        height: 20px;
+                        width: 20px;
+                        img: @image-url("icons/trash.png");
+                        hover: @image-url("icons/trash-hover.png");
+                        clicked => {
+                            //root.new-file();
+                                        }
+                    }
                 }
-            }
 
-            BetterButton {
-
-                height: 20px;
-                width: 20px;
-                img: @image-url("icons/trash.png");
-                hover: @image-url("icons/trash-hover.png");
-                clicked => {
-                    //root.new-file();
-            }
+                BetterButton {
+                    height: 20px;
+                    width: 20px;
+                    img: @image-url("icons/settings.png");
+                    hover: @image-url("icons/settings.png");
+                    clicked => {
+                        theme-window.show();
+                    }
+                }
             }
         }
     }

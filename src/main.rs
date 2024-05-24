@@ -1,3 +1,4 @@
+//#![windows_subsystem = "windows"]
 mod cache;
 mod hooks;
 mod search_hooks;
@@ -5,10 +6,12 @@ mod search_hooks;
 use std::arch::x86_64::_xgetbv;
 use std::cell::{RefCell, RefMut};
 use std::cmp::{max, min};
+use std::path::Path;
 use std::rc::Rc;
-use slint::{CloseRequestResponse, Model, SharedString, VecModel, Weak};
+use slint::{CloseRequestResponse, Image, Model, SharedString, VecModel, Weak};
 use log::log;
 use regex::Regex;
+use rfd::FileDialog;
 use slint::platform::Key;
 use slint::private_unstable_api::re_exports::{KeyboardModifiers, KeyEvent};
 use crate::cache::Database;
@@ -20,7 +23,7 @@ slint::include_modules!();
 static mut CURRENT_FILE: Option<String> = None;
 
 fn main() -> Result<(), slint::PlatformError> {
-    let db = Rc::new(RefCell::new(Database::new("cache")));
+    let mut db = Rc::new(RefCell::new(Database::new("cache")));
     db.borrow_mut().load().expect("Failed to load db");
 
     let ui = AppWindow::new()?;
@@ -29,8 +32,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let model = Rc::new(slint::VecModel::from(vec![]));
     build_file_tree(Rc::clone(&db), model.clone());
     ui.set_files(model.clone().into());
-
-    handle_textbox_edit(ui.as_weak());
+    handle_textbox_edit(Rc::clone(&db), ui.as_weak());
     handle_click_file_tree(Rc::clone(&db), model.clone(), ui.as_weak());
     handle_new_file_button(Rc::clone(&db), model.clone(), ui.as_weak());
     handle_window_events(Rc::clone(&db), ui.as_weak());
@@ -42,13 +44,16 @@ fn main() -> Result<(), slint::PlatformError> {
     on_pressed_enter(Rc::clone(&db), ui.as_weak());
     on_move_down(Rc::clone(&db), ui.as_weak());
 
+    let clone = Rc::clone(&db);
+
     let ui_handle = ui.as_weak();
     ui_handle.unwrap().on_close(move || {
         let ui = ui_handle.unwrap();
+        let mut binding = clone.borrow_mut();
         ui.window().hide();
         println!("Window close requested");
-        open_file(&mut db.borrow_mut(), ui_handle.clone(), None);
-        db.borrow().save_all().expect("Failed to save all files on exit!");
+        open_file(&mut binding, ui_handle.clone(), None);
+        binding.save_all().expect("Failed to save all files on exit!");
     });
 
     let ui_handle = ui.as_weak();
@@ -60,11 +65,48 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     });
     let ui_handle = ui.as_weak();
-    ui_handle.unwrap().on_close_search(move || {
+    ui_handle.unwrap().on_close_popups(move || {
         let ui = ui_handle.unwrap();
-        ui.invoke_hide_search_popup();
+        ui.invoke_hide_popups();
     });
 
+    let ui_handle = ui.as_weak();
+    ui_handle.unwrap().on_open_background_image_selection_dialog(move || {
+        let ui = ui_handle.unwrap();
+        if let Some(path) = FileDialog::new().add_filter("Images",&vec!["png", "jpg"]).pick_file() {
+            let p = path.display().to_string().clone();
+            let path = Path::new(p.as_str());
+
+            ui.invoke_set_background_image(Image::load_from_path(path).unwrap());
+            return SharedString::from(p);
+        } else {
+            return SharedString::from("None");
+        }
+
+    });
+    let clone = Rc::clone(&db);
+    let ui_handle = ui.as_weak();
+    ui_handle.unwrap().on_open_working_directory_selection_dialog(move || {
+        let ui = ui_handle.unwrap();
+        let mut binding = clone.borrow_mut();
+        if let Some(path) = FileDialog::new().pick_folder() {
+            let p = path.display().to_string().clone();
+            println!("Changing directories!");
+            open_file(&mut binding, ui.as_weak(), None);
+            binding.change_dirs(p.clone());
+            binding.load().expect("Failed to load db");
+            println!("Loaded new directory!");
+            drop(binding);
+            build_file_tree(Rc::clone(&db), model.clone());
+            ui.invoke_hide_popups();
+
+            return SharedString::from(p.clone());
+        } else {
+            println!("aaaasdfadf\n");
+            return SharedString::from("None");
+        }
+
+    });
 
 
 
@@ -184,9 +226,7 @@ fn open_file(db: &mut Database, ui_handle: Weak<AppWindow>, file: Option<String>
         }
         if file.is_some() {
             let f = file.unwrap();
-            println!("Opened {}", f);
             for x in 0..ui.get_files().row_count() {
-                println!("{} == {}", ui.get_files().row_data(x).unwrap().full_path , f);
                 let mut a = ui.get_files().row_data(x).unwrap();
                 a.open = ui.get_files().row_data(x).unwrap().full_path == f;
                 ui.get_files().set_row_data(x, a);

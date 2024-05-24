@@ -1,5 +1,5 @@
 import { Button, HorizontalBox, VerticalBox, TextEdit, ListView, CheckBox, ScrollView } from "std-widgets.slint";
-
+import { Themes } from "styling.slint";
 
 export struct SearchResult {
     file_path: string,
@@ -23,15 +23,21 @@ export component FindWindow inherits Rectangle {
     callback clicked-result-callback();
 
     callback close-search();
-    cache-rendering-hint: false;
 
     function update() {
         Results.results = [];
         scroll.viewport_y = 0;
         search(match-file-names.checked, match-file-contents.checked, match-case.checked, match-regex.checked, search-term.text);
     }
-
-    background: #1C1C1C;
+    animate background { duration: 250ms;}
+    background: Themes.selected.primary-color;
+    clip: true;
+    Image {
+                    opacity: 50%;
+                    width: root.width;
+                    height: root.height;
+                    source: Themes.selected.background-image;
+                }
     border-radius: 13px;
     drop-shadow-color: black;
     drop-shadow-blur: 5px;
@@ -52,15 +58,16 @@ export component FindWindow inherits Rectangle {
         }
         VerticalBox {
             Text {
+            color: Themes.selected.font-color;
                 font-size: 14px;
                 text: "Search in all files";
             }
 
             Rectangle {
-
+                animate background { duration: 250ms;}
                 height: 36px;
                 border-radius: 5px;
-                background: #2c2c2c;
+                background:  Themes.opacity(Themes.selected.secondary-color, 0.5);
                 search-term := TextInput {
                     accepted => {
                         debug("accepted!!");
@@ -104,6 +111,7 @@ export component FindWindow inherits Rectangle {
                 }
 
                 match-regex := CheckBox {
+
                     text: "Regex";
                     checked: false;
                     toggled => {
@@ -113,8 +121,8 @@ export component FindWindow inherits Rectangle {
             }
 
             Rectangle {
-
-                background: #2c2c2c;
+                animate background { duration: 250ms;}
+                background:  Themes.opacity(Themes.selected.secondary-color, 0.5);
                 border-radius: 5px;
 
                 scroll := ScrollView {
@@ -128,7 +136,7 @@ export component FindWindow inherits Rectangle {
                         for result in Results.results: Rectangle {
 
                             height: 80px;
-                            background: result.selected ? #4D4D4D : #1A1A1A;
+                            background: Themes.opacity(result.selected ? Themes.selected.highlight-color : Themes.selected.primary-color, 0.5);
 
                             border-radius: 5px;
 
@@ -140,8 +148,9 @@ export component FindWindow inherits Rectangle {
                                 }
 
                                 Rectangle {
+                                    animate background { duration: 250ms;}
                                     border-radius: 5px;
-                                    background: result.selected ? #5F5F5F : #1D1D1D;
+                                    background: Themes.opacity(Themes.selected.secondary-color, 0.25);
                                     Text {
                                         x: 8px;
 

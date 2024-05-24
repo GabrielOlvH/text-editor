@@ -1,5 +1,6 @@
 import { Button, HorizontalBox, VerticalBox, TextEdit, ListView, StandardListView } from "std-widgets.slint";
 import { BetterButton } from "better-button.slint";
+import { Themes } from "styling.slint";
 
 export component TitleBar inherits TouchArea {
     callback mouse_move(length, length);
@@ -11,12 +12,13 @@ export component TitleBar inherits TouchArea {
         root.mouse_move(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
     }
     Rectangle {
+        animate background { duration: 250ms;}
         opacity: 90%;
         x: 8px;
         y: 8px;
-        background: dimgrey;
+      //  background: Themes.selected.secondary-color;
         border-radius: 5px;
-        width: 16px * 4;
+        width: 250px - 24px;
         height: 38px;
         HorizontalBox {
             y: 0;

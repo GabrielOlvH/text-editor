@@ -6,12 +6,15 @@ use crate::cache::Database;
 
 
 
-pub fn handle_textbox_edit(ui_handle: Weak<AppWindow>) {
+pub fn handle_textbox_edit(db: Rc<RefCell<Database>>, ui_handle: Weak<AppWindow>) {
     ui_handle.unwrap().on_edited(move |_| {
         let ui = ui_handle.unwrap();
+        let mut binding = db.borrow_mut();
         unsafe {
             if CURRENT_FILE.is_none() {
                 ui.invoke_new_file();
+            } else {
+                binding.mark_dirty(CURRENT_FILE.clone().unwrap());
             }
         }
         ();

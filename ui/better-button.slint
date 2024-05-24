@@ -1,3 +1,4 @@
+import { Themes } from "styling.slint";
 
 export component BetterButton inherits TouchArea {
     in property<image> img;
@@ -9,6 +10,7 @@ export component BetterButton inherits TouchArea {
         }
     ]
     icon := Image {
+        colorize: Themes.selected.font-color;
         width: root.width;
         height: root.height;
         source: img;

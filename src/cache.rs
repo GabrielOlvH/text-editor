@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 pub(crate) struct Database {
     data: HashMap<String, String>,
+    dirty: Vec<String>,
     file_path: String,
     collapsed: Vec<String>
 }
@@ -20,6 +21,7 @@ impl Database {
 
         Database {
             data: HashMap::new(),
+            dirty: Vec::new(),
             file_path: file_path.to_string(),
             collapsed: Vec::new()
         }
@@ -59,6 +61,11 @@ impl Database {
         return self.data.keys().collect()
     }
 
+    pub fn change_dirs(&mut self, p: String) {
+        self.file_path = p;
+        self.data.clear();
+    }
+
     pub fn load(&mut self) -> Result<(), io::Error> {
         self.read_dir_recursive(&PathBuf::from(&self.file_path), String::new())?;
         Ok(())
@@ -81,7 +88,8 @@ impl Database {
                 } else {
                     let mut content = String::new();
                     let mut file = File::open(&path)?;
-                    file.read_to_string(&mut content)?;
+                    let r = file.read_to_string(&mut content);
+                    if r.is_err() { continue; }
 
                     let key = if prefix.is_empty() {
                         file_name
@@ -102,6 +110,7 @@ impl Database {
 
     pub fn save_all(&self) -> io::Result<()> {
         for (key, value) in &self.data {
+            if !self.dirty.contains(key) { continue; }
             let file_path = format!("{}/{}", &self.file_path, key);
             let path = Path::new(&file_path);
 
@@ -167,6 +176,10 @@ impl Database {
 
     pub fn insert(&mut self, key: String, value: String) {
         self.data.insert(key, value);
+    }
+
+    pub fn mark_dirty(&mut self, key: String) {
+        self.dirty.push(key);
     }
 
     fn get(&self, key: &str) -> Option<&String> {

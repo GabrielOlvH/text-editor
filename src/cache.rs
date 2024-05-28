@@ -66,6 +66,10 @@ impl Database {
         self.data.clear();
     }
 
+    pub fn current_dir(&self) -> String {
+        return self.file_path.clone();
+    }
+
     pub fn load(&mut self) -> Result<(), io::Error> {
         self.read_dir_recursive(&PathBuf::from(&self.file_path), String::new())?;
         Ok(())

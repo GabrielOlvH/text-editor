@@ -9,6 +9,9 @@ import { Settings } from "settings.slint";
 export component AppWindow inherits Window {
     in-out property <[FileTreeItemData]> files;
 
+    in property<string> current-dir;
+    in property<string> current-background;
+
     public function set-search-results(results: [SearchResult]) {
         Results.results = results;
     }
@@ -147,6 +150,8 @@ export component AppWindow inherits Window {
                     close-popups => {
                         close-popups();
                     }
+                    current-background: current-background;
+                    current-dir: current-dir;
                     open-background-image-selection-dialog => {
                         return root.open-background-image-selection-dialog();
                     }

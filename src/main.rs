@@ -29,6 +29,11 @@ fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
 
 
+    let clone = Rc::clone(&db);
+    ui.as_weak().unwrap().set_current_dir(SharedString::from(clone.borrow_mut().current_dir()));
+    ui.as_weak().unwrap().set_current_background(SharedString::from("None"));
+
+
     let model = Rc::new(slint::VecModel::from(vec![]));
     build_file_tree(Rc::clone(&db), model.clone());
     ui.set_files(model.clone().into());
@@ -78,6 +83,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let path = Path::new(p.as_str());
 
             ui.invoke_set_background_image(Image::load_from_path(path).unwrap());
+            ui.set_current_background(SharedString::from(p.clone()));
             return SharedString::from(p);
         } else {
             return SharedString::from("None");
@@ -99,6 +105,7 @@ fn main() -> Result<(), slint::PlatformError> {
             drop(binding);
             build_file_tree(Rc::clone(&db), model.clone());
             ui.invoke_hide_popups();
+            ui.set_current_dir(SharedString::from(p.clone()));
 
             return SharedString::from(p.clone());
         } else {

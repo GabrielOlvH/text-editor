@@ -3,6 +3,8 @@ import { ChangeTheme } from "change-theme.slint";
 import { Themes, Pallete } from "styling.slint";
 
 component SelectFileWidget inherits HorizontalBox {
+    in-out property<string> current-path;
+
     callback open-file-selecion-dialog() -> string;
     alignment: space-between;
     spacing: 0;
@@ -23,7 +25,7 @@ component SelectFileWidget inherits HorizontalBox {
             vertical-alignment: center;
             horizontal-alignment: left;
             overflow: elide;
-            text: "path";
+            text: current-path;
             height: 25px;
         }
     }
@@ -32,7 +34,8 @@ component SelectFileWidget inherits HorizontalBox {
         width: 25%;
         height: 25px;
         clicked => {
-            path.text = open-file-selecion-dialog();
+            current-path = open-file-selecion-dialog();
+            path.text = current-path;
         }
         mouse-cursor: pointer;
         Rectangle {
@@ -53,6 +56,9 @@ export component Settings inherits Rectangle {
     callback close-popups();
     callback open-background-image-selection-dialog() -> string;
     callback open-working-directory-selection-dialog() -> string;
+
+    in property<string> current-dir;
+    in property<string> current-background;
 
     border-radius: 13px;
     background: Themes.selected.primary-color;
@@ -85,6 +91,7 @@ export component Settings inherits Rectangle {
             }
 
             SelectFileWidget {
+                current-path: current-dir;
                 open-file-selecion-dialog => {
                     return open-working-directory-selection-dialog();
                 }
@@ -101,6 +108,7 @@ export component Settings inherits Rectangle {
             }
 
             SelectFileWidget {
+                current-path: current-background;
                 open-file-selecion-dialog => {
                     return open-background-image-selection-dialog();
                 }

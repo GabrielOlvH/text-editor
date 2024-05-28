@@ -95,11 +95,12 @@ pub fn handle_rename(db: Rc<RefCell<Database>>, mut model: Rc<VecModel<FileTreeI
 
 
                     println!("renamed to {}", value.name.as_str());
-                    CURRENT_FILE = Some(new_name.as_str().to_owned());
+
                 }
             }
             drop(binding);
             build_file_tree(db.clone(), model.clone());
+            CURRENT_FILE = Some(new_name.as_str().to_owned());
         }();
         return new_name.clone();
     });

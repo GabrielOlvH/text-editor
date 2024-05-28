@@ -137,8 +137,6 @@ impl Database {
     pub fn delete_file(&self, name: &str) {
         if remove_file(format!("{}/{}", &self.file_path, name)).is_ok() {
             println!("Deleted file {}", name);
-        } else {
-            println!("File {} not found", name);
         }
     }
 

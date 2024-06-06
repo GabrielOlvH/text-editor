@@ -5,8 +5,9 @@ use regex::Regex;
 use slint::{ComponentHandle, Model, SharedString, Weak};
 use crate::{AppWindow, open_file, SearchResult};
 use crate::cache::Database;
+use crate::state::State;
 
-pub fn on_pressed_enter(db: Rc<RefCell<Database>>, ui_handle: Weak<AppWindow>) {
+pub fn on_pressed_enter(db: Rc<RefCell<Database>>, state: Rc<RefCell<State>>, ui_handle: Weak<AppWindow>) {
     ui_handle.unwrap().on_enter_callback(move || {
         println!("enter!!");
         let ui = ui_handle.unwrap();
@@ -16,7 +17,7 @@ pub fn on_pressed_enter(db: Rc<RefCell<Database>>, ui_handle: Weak<AppWindow>) {
             let result = current_results.row_data(x).unwrap();
             if result.selected {
                 ui.invoke_hide_popups();
-                open_file(&mut db.borrow_mut(), ui.as_weak(), Some(result.file_path.to_string()));
+                open_file(&mut db.borrow_mut(), &mut state.borrow_mut(), ui.as_weak(), Some(result.file_path.to_string()));
                 ui.invoke_highlight(result.start, result.end);
                 break;
             }

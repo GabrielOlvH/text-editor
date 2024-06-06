@@ -2,132 +2,64 @@
 mod cache;
 mod hooks;
 mod search_hooks;
+mod state;
 
-use std::arch::x86_64::_xgetbv;
 use std::cell::{RefCell, RefMut};
-use std::cmp::{max, min};
 use std::path::Path;
 use std::rc::Rc;
 use slint::{CloseRequestResponse, Image, Model, SharedString, VecModel, Weak};
-use log::log;
-use regex::Regex;
-use rfd::FileDialog;
-use slint::platform::Key;
-use slint::private_unstable_api::re_exports::{KeyboardModifiers, KeyEvent};
 use crate::cache::Database;
-use crate::hooks::{handle_click_file_tree, handle_delete, handle_new_file_button, handle_rename, handle_textbox_edit};
+use crate::hooks::{handle_change_background_image, handle_change_dir, handle_click_file_tree, handle_close, handle_close_popups, handle_delete, handle_new_file_button, handle_rename, handle_shortcuts, handle_textbox_edit};
 use crate::search_hooks::{on_move_down, on_pressed_enter, on_search};
+use crate::state::State;
 
 slint::include_modules!();
 
 static mut CURRENT_FILE: Option<String> = None;
 
 fn main() -> Result<(), slint::PlatformError> {
-    let mut db = Rc::new(RefCell::new(Database::new("cache")));
+
+    let mut state = Rc::new(RefCell::new(State::new().read().expect("Loaded state")));
+
+    let mut db = Rc::new(RefCell::new(Database::new(&state.borrow_mut().data_dir)));
     db.borrow_mut().load().expect("Failed to load db");
 
     let ui = AppWindow::new()?;
 
-
     let clone = Rc::clone(&db);
     ui.as_weak().unwrap().set_current_dir(SharedString::from(clone.borrow_mut().current_dir()));
-    ui.as_weak().unwrap().set_current_background(SharedString::from("None"));
+    let bg = &state.borrow_mut().background_image_path.clone().unwrap();
+    ui.as_weak().unwrap().set_current_background(SharedString::from(bg));
 
+    ui.invoke_set_background_image(Image::load_from_path(Path::new(bg)).unwrap());
 
     let model = Rc::new(slint::VecModel::from(vec![]));
     build_file_tree(Rc::clone(&db), model.clone());
     ui.set_files(model.clone().into());
     handle_textbox_edit(Rc::clone(&db), ui.as_weak());
-    handle_click_file_tree(Rc::clone(&db), model.clone(), ui.as_weak());
-    handle_new_file_button(Rc::clone(&db), model.clone(), ui.as_weak());
-    handle_window_events(Rc::clone(&db), ui.as_weak());
+    handle_click_file_tree(Rc::clone(&db), Rc::clone(&state), model.clone(), ui.as_weak());
+    handle_new_file_button(Rc::clone(&db), Rc::clone(&state), model.clone(), ui.as_weak());
+    handle_window_events(Rc::clone(&db), Rc::clone(&state), ui.as_weak());
     handle_rename(Rc::clone(&db), model.clone(), ui.as_weak());
-    handle_delete(Rc::clone(&db), model.clone(), ui.as_weak());
-
+    handle_delete(Rc::clone(&db), Rc::clone(&state), model.clone(), ui.as_weak());
+    handle_close(Rc::clone(&db), Rc::clone(&state), ui.as_weak());
+    handle_shortcuts(ui.as_weak());
+    handle_close_popups(ui.as_weak());
+    handle_change_background_image(Rc::clone(&db), Rc::clone(&state), ui.as_weak());
+    handle_change_dir(Rc::clone(&db), Rc::clone(&state), model.clone(), ui.as_weak());
 
     on_search(Rc::clone(&db), ui.as_weak());
-    on_pressed_enter(Rc::clone(&db), ui.as_weak());
+    on_pressed_enter(Rc::clone(&db), Rc::clone(&state), ui.as_weak());
     on_move_down(Rc::clone(&db), ui.as_weak());
-
-    let clone = Rc::clone(&db);
-
-    let ui_handle = ui.as_weak();
-    ui_handle.unwrap().on_close(move || {
-        let ui = ui_handle.unwrap();
-        let mut binding = clone.borrow_mut();
-        ui.window().hide();
-        println!("Window close requested");
-        open_file(&mut binding, ui_handle.clone(), None);
-        binding.save_all().expect("Failed to save all files on exit!");
-    });
-
-    let ui_handle = ui.as_weak();
-    ui_handle.unwrap().on_process_shortcut(move |event: KeyEvent| {
-        let ui = ui_handle.unwrap();
-        println!("received {}",event.text);
-        if event.modifiers.control && event.text.eq_ignore_ascii_case("t") {
-            ui.invoke_show_search_popup();
-        }
-    });
-    let ui_handle = ui.as_weak();
-    ui_handle.unwrap().on_close_popups(move || {
-        let ui = ui_handle.unwrap();
-        ui.invoke_hide_popups();
-    });
-
-    let ui_handle = ui.as_weak();
-    ui_handle.unwrap().on_open_background_image_selection_dialog(move || {
-        let ui = ui_handle.unwrap();
-        if let Some(path) = FileDialog::new().add_filter("Images",&vec!["png", "jpg"]).pick_file() {
-            let p = path.display().to_string().clone();
-            let path = Path::new(p.as_str());
-
-            ui.invoke_set_background_image(Image::load_from_path(path).unwrap());
-            ui.set_current_background(SharedString::from(p.clone()));
-            return SharedString::from(p);
-        } else {
-            return SharedString::from("None");
-        }
-
-    });
-    let clone = Rc::clone(&db);
-    let ui_handle = ui.as_weak();
-    ui_handle.unwrap().on_open_working_directory_selection_dialog(move || {
-        let ui = ui_handle.unwrap();
-        let mut binding = clone.borrow_mut();
-        if let Some(path) = FileDialog::new().pick_folder() {
-            let p = path.display().to_string().clone();
-            println!("Changing directories!");
-            open_file(&mut binding, ui.as_weak(), None);
-            binding.change_dirs(p.clone());
-            binding.load().expect("Failed to load db");
-            println!("Loaded new directory!");
-            drop(binding);
-            build_file_tree(Rc::clone(&db), model.clone());
-            ui.invoke_hide_popups();
-            ui.set_current_dir(SharedString::from(p.clone()));
-
-            return SharedString::from(p.clone());
-        } else {
-            println!("aaaasdfadf\n");
-            return SharedString::from("None");
-        }
-
-    });
-
-
 
     ui.run()
 }
 
-
-
-
-fn handle_window_events(db: Rc<RefCell<Database>>, weak: Weak<AppWindow>) {
+fn handle_window_events(db: Rc<RefCell<Database>>, state: Rc<RefCell<State>>, weak: Weak<AppWindow>) {
     let ui_handle = weak.clone();
     ui_handle.unwrap().window().on_close_requested(move || {
         println!("Window close requested");
-        open_file(&mut db.borrow_mut(), ui_handle.clone(), None);
+        open_file(&mut db.borrow_mut(), &mut state.borrow_mut(), ui_handle.clone(), None);
         db.borrow().save_all().expect("Failed to save all files on exit!");
         return CloseRequestResponse::HideWindow;
     });
@@ -187,7 +119,6 @@ fn push_files(db: &RefMut<Database>, vector: &mut Vec<FileTreeItemData>, paths_a
                 open: false,
                 r#type: SharedString::from("folder")
             });
-         //   println!("Pushed {}", full_path);
             paths_added.push(full_path.clone());
         }
 
@@ -206,7 +137,6 @@ fn push_files(db: &RefMut<Database>, vector: &mut Vec<FileTreeItemData>, paths_a
                 open: false,
                 r#type: SharedString::from("file")
             });
-            //println!("Pushed {}", full_path);
 
             paths_added.push(full_path.clone());
         }
@@ -225,7 +155,7 @@ fn remove_invalid_dirs(str: String) -> String {
 }
 
 
-fn open_file(db: &mut Database, ui_handle: Weak<AppWindow>, file: Option<String>) {
+fn open_file(db: &mut Database, state: &mut State, ui_handle: Weak<AppWindow>, file: Option<String>) {
     unsafe {
         let ui = ui_handle.unwrap();
         if CURRENT_FILE.is_some() {
@@ -240,6 +170,7 @@ fn open_file(db: &mut Database, ui_handle: Weak<AppWindow>, file: Option<String>
             }
             ui.invoke_set_open_file(SharedString::from(f.clone()), SharedString::from(db.get_contents(f.as_str())));
             CURRENT_FILE = Some(f.clone());
+            state.last_open_file = Some(f.clone());
         } else {
             CURRENT_FILE = None;
         }

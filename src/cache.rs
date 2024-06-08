@@ -1,11 +1,11 @@
 use std::collections::HashMap;
-use std::fs::{create_dir, create_dir_all, File, metadata, OpenOptions, read_dir, remove_file};
-use std::io::{self, Read, Write};
+use std::fs::{create_dir, create_dir_all, metadata, OpenOptions, read_dir, remove_file};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use crate::file_types::{FileType, TextFile};
 
 pub(crate) struct Database {
-    data: HashMap<String, String>,
-    dirty: Vec<String>,
+    pub data: HashMap<String, FileType>,
     file_path: String,
     collapsed: Vec<String>
 }
@@ -21,7 +21,6 @@ impl Database {
 
         Database {
             data: HashMap::new(),
-            dirty: Vec::new(),
             file_path: file_path.to_string(),
             collapsed: Vec::new()
         }
@@ -41,7 +40,7 @@ impl Database {
         for m in a.clone() {
             s.push_str(m);
             for x in self.collapsed.clone() {
-                if  x == s.clone() { return true; }
+                if x == s.clone() { return true; }
             }
             s.push('/')
         }
@@ -53,8 +52,8 @@ impl Database {
         return self.data.contains_key(file);
     }
 
-    pub fn get_contents(&self, file: &str) -> &str {
-        return &self.data.get(file).expect("file not found!!!")
+    pub fn get_file(&mut self, file_name: &str) -> Option<&mut FileType> {
+        return self.data.get_mut(file_name);
     }
 
     pub fn keys(&self) -> Vec<&String> {
@@ -90,17 +89,17 @@ impl Database {
                     };
                     self.read_dir_recursive(&path, new_prefix)?;
                 } else {
-                    let mut content = String::new();
-                    let mut file = File::open(&path)?;
-                    let r = file.read_to_string(&mut content);
-                    if r.is_err() { continue; }
+                 //   let mut content = String::new();
+               //     let mut file = File::open(&path)?;
+               //     let r = file.read_to_string(&mut content);
+                //    if r.is_err() { continue; }
 
                     let key = if prefix.is_empty() {
-                        file_name
+                        file_name.clone()
                     } else {
                         format!("{}/{}", prefix, file_name)
                     };
-                    self.data.insert(key, content);
+                    self.data.insert(key.clone(), FileType::Text(TextFile { path: path.as_os_str().to_str().unwrap().to_string(), content: None, dirty: false }));
                 }
             }
         } else {
@@ -110,30 +109,33 @@ impl Database {
         Ok(())
     }
 
-
-
     pub fn save_all(&self) -> io::Result<()> {
         for (key, value) in &self.data {
-            if !self.dirty.contains(key) { continue; }
-            let file_path = format!("{}/{}", &self.file_path, key);
-            let path = Path::new(&file_path);
 
-            // Ensure the parent directory exists
-            if let Some(parent) = path.parent() {
-                create_dir_all(parent)?;
+            if let FileType::Text(text_file) = value {
+                if !value.is_dirty() { continue; }
+                let file_path = format!("{}/{}", &self.file_path, key);
+                let path = Path::new(&file_path);
+
+                // Ensure the parent directory exists
+                if let Some(parent) = path.parent() {
+                    create_dir_all(parent).expect("Failed to create dir");
+                }
+
+                // Open the file with write, truncate, and create options
+                let mut file = OpenOptions::new()
+                    .write(true)
+                    .truncate(true)
+                    .create(true)
+                    .open(&file_path).expect(format!("Failed to open file {}", key.clone()).as_str());
+
+                println!("Saved {}", key);
+
+                // Write the value to the file
+                if let Some(content) = &text_file.content {
+                    writeln!(&mut file, "{}", content.clone()).expect(format!("Failed to save {}", key.clone()).as_str());
+                }
             }
-
-            // Open the file with write, truncate, and create options
-            let mut file = OpenOptions::new()
-                .write(true)
-                .truncate(true)
-                .create(true)
-                .open(&file_path)?;
-
-            println!("Saved {}", key);
-
-            // Write the value to the file
-            writeln!(&mut file, "{}", value)?;
         }
         Ok(())
     }
@@ -165,30 +167,31 @@ impl Database {
     }
 
     pub fn save(&self, file: &str) {
-        let content = &self.data.get(file).expect("file doesn't exist");
-        let mut file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open(format!("{}/{}", &self.file_path, file)).expect("failed to open file");
+        if let FileType::Text(content) = &self.data.get(file).expect("file doesn't exist") {
+            let mut file = OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .create(true)
+                .open(format!("{}/{}", &self.file_path, file)).expect("failed to open file");
 
 
-        writeln!(&mut file, "{}", content).expect("failed to write file");
+            if let Some(content) = &content.content {
+                writeln!(&mut file, "{}", content).expect("failed to write file");
+            }
+        }
     }
 
     pub fn insert(&mut self, key: String, value: String) {
-        self.data.insert(key, value);
+        self.data.insert(key.clone(), FileType::Text(TextFile { path: key.clone(), content: Some(value), dirty: true }));
     }
 
     pub fn mark_dirty(&mut self, key: String) {
-        self.dirty.push(key);
+        if let Some(file) = self.data.get_mut(&key) {
+            file.set_dirty(true);
+        }
     }
 
-    fn get(&self, key: &str) -> Option<&String> {
-        self.data.get(key)
-    }
-
-    fn delete(&mut self, key: &str) -> Option<String> {
+    fn delete(&mut self, key: &str) -> Option<FileType> {
         self.data.remove(key)
     }
 }

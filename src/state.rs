@@ -23,13 +23,13 @@ impl State {
 
     pub fn read(self) -> Result<Self, ()> {
         let mut content = String::new();
-        let mut file = File::open("state.json");
-        if (!file.is_ok()) {
+        let file = File::open("state.json");
+        if !file.is_ok() {
             return Ok(self);
         }
-        let r = file.unwrap().read_to_string(&mut content);
+        file.unwrap().read_to_string(&mut content).expect("Failed to load state");
 
-        let mut state: State = serde_json::from_str(&content).unwrap();
+        let state: State = serde_json::from_str(&content).unwrap();
         return Ok(state);
     }
 

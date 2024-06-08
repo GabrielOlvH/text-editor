@@ -5,11 +5,11 @@ use regex::Regex;
 use slint::{ComponentHandle, Model, SharedString, Weak};
 use crate::{AppWindow, open_file, SearchResult};
 use crate::cache::Database;
+use crate::file_types::FileType;
 use crate::state::State;
 
 pub fn on_pressed_enter(db: Rc<RefCell<Database>>, state: Rc<RefCell<State>>, ui_handle: Weak<AppWindow>) {
     ui_handle.unwrap().on_enter_callback(move || {
-        println!("enter!!");
         let ui = ui_handle.unwrap();
 
         let current_results = ui.invoke_get_search_results();
@@ -25,9 +25,8 @@ pub fn on_pressed_enter(db: Rc<RefCell<Database>>, state: Rc<RefCell<State>>, ui
     });
 }
 
-pub fn on_move_down(db: Rc<RefCell<Database>>, ui_handle: Weak<AppWindow>) {
+pub fn on_move_down(ui_handle: Weak<AppWindow>) {
     ui_handle.unwrap().on_move_down_result(move || {
-
         let ui = ui_handle.unwrap();
 
         let current_results = ui.invoke_get_search_results();
@@ -46,11 +45,8 @@ pub fn on_move_down(db: Rc<RefCell<Database>>, ui_handle: Weak<AppWindow>) {
                 }
             }
 
-            if (found) {
-
-                println!("{} >= {}", x+1, current_results.row_count());
+            if found {
                 result.selected = true;
-                println!("new selected is {}", result.file_path);
                 current_results.set_row_data(x, result.clone());
                 return x as i32;
             }
@@ -72,59 +68,60 @@ pub fn on_search(db: Rc<RefCell<Database>>, ui_handle: Weak<AppWindow>) {
         let mut results: Vec<SearchResult> = Vec::new();
         let mut selected_first = false;
 
-
         if !match_case {
             terms = terms.to_lowercase().to_string();
         }
 
-        for key in binding.keys() {
-            if match_contents {
-                let mut contents = binding.get_contents(key).to_string();
+        for (key, file_type) in &mut binding.data {
+            if let FileType::Text(ref mut text_file) = file_type {
+                if match_contents {
+                    let mut contents = text_file.get_contents().clone();
 
-                if !match_case {
-                    contents = contents.to_lowercase();
-                }
-                let opt = find(regex, terms.to_string(), contents.to_string());
-
-                if opt.is_some() {
-                    let start = opt.unwrap();
-                    let snippet_start = max((start as i32) - 8, 0) as usize;
-                    let snippet_end = min(start + terms.len() + 8, contents.len());
-                    let mut snippet = &mut contents[snippet_start..snippet_end].replace("\n", "\\n");
-
-                    if snippet_start > 0 {
-                        snippet.insert_str(0, "...");
+                    if !match_case {
+                        contents = contents.to_lowercase();
                     }
-                    if snippet_end < contents.len() {
-                        snippet.push_str("...");
+                    let opt = find(regex, terms.to_string(), contents.to_string());
+
+                    if opt.is_some() {
+                        let start = opt.unwrap();
+                        let snippet_start = max((start as i32) - 8, 0) as usize;
+                        let snippet_end = min(start + terms.len() + 8, contents.len());
+                        let snippet = &mut contents[snippet_start..snippet_end].replace("\n", "\\n");
+
+                        if snippet_start > 0 {
+                            snippet.insert_str(0, "...");
+                        }
+                        if snippet_end < contents.len() {
+                            snippet.push_str("...");
+                        }
+                        results.push(SearchResult {
+                            file_path: SharedString::from(key.clone()),
+                            line_matched: SharedString::from(snippet.clone()),
+                            match_name: false,
+                            match_contents: true,
+                            selected: !selected_first,
+                            start: start as i32,
+                            end: start as i32 + terms.len() as i32
+                        });
+                        selected_first = true;
                     }
-                    results.push(SearchResult {
-                        file_path: SharedString::from(key),
-                        line_matched: SharedString::from(snippet.clone()),
-                        match_name: false,
-                        match_contents: true,
-                        selected: !selected_first,
-                        start: start as i32,
-                        end: start as i32 + terms.len() as i32
-                    });
-                    selected_first = true;
                 }
-            }
 
-            if match_name {
-                let opt = find(regex, terms.to_string(), key.to_string());
-                if opt.is_some() {
-                    results.push(SearchResult {
-                        file_path: SharedString::from(key),
-                        line_matched: SharedString::from(""),
-                        match_name: true,
-                        match_contents: false,
-                        selected: !selected_first,
-                        start: 0,
-                        end: 0
-                    });
+                if match_name {
+                    let opt = find(regex, terms.to_string(), key.to_string());
+                    if opt.is_some() {
+                        results.push(SearchResult {
+                            file_path: SharedString::from(key.clone()),
+                            line_matched: SharedString::from(""),
+                            match_name: true,
+                            match_contents: false,
+                            selected: !selected_first,
+                            start: 0,
+                            end: 0
+                        });
 
-                    selected_first = true;
+                        selected_first = true;
+                    }
                 }
             }
         }

@@ -3,12 +3,14 @@ mod cache;
 mod hooks;
 mod search_hooks;
 mod state;
+mod file_types;
 
 use std::cell::{RefCell, RefMut};
 use std::path::Path;
 use std::rc::Rc;
 use slint::{CloseRequestResponse, Image, Model, SharedString, VecModel, Weak};
 use crate::cache::Database;
+use crate::file_types::FileType;
 use crate::hooks::{handle_change_background_image, handle_change_dir, handle_click_file_tree, handle_close, handle_close_popups, handle_delete, handle_new_file_button, handle_rename, handle_shortcuts, handle_textbox_edit};
 use crate::search_hooks::{on_move_down, on_pressed_enter, on_search};
 use crate::state::State;
@@ -19,9 +21,9 @@ static mut CURRENT_FILE: Option<String> = None;
 
 fn main() -> Result<(), slint::PlatformError> {
 
-    let mut state = Rc::new(RefCell::new(State::new().read().expect("Loaded state")));
+    let state = Rc::new(RefCell::new(State::new().read().expect("Loaded state")));
 
-    let mut db = Rc::new(RefCell::new(Database::new(&state.borrow_mut().data_dir)));
+    let db = Rc::new(RefCell::new(Database::new(&state.borrow_mut().data_dir)));
     db.borrow_mut().load().expect("Failed to load db");
 
     let ui = AppWindow::new()?;
@@ -45,12 +47,12 @@ fn main() -> Result<(), slint::PlatformError> {
     handle_close(Rc::clone(&db), Rc::clone(&state), ui.as_weak());
     handle_shortcuts(ui.as_weak());
     handle_close_popups(ui.as_weak());
-    handle_change_background_image(Rc::clone(&db), Rc::clone(&state), ui.as_weak());
+    handle_change_background_image(Rc::clone(&state), ui.as_weak());
     handle_change_dir(Rc::clone(&db), Rc::clone(&state), model.clone(), ui.as_weak());
 
     on_search(Rc::clone(&db), ui.as_weak());
     on_pressed_enter(Rc::clone(&db), Rc::clone(&state), ui.as_weak());
-    on_move_down(Rc::clone(&db), ui.as_weak());
+    on_move_down(ui.as_weak());
 
     ui.run()
 }
@@ -168,9 +170,11 @@ fn open_file(db: &mut Database, state: &mut State, ui_handle: Weak<AppWindow>, f
                 a.open = ui.get_files().row_data(x).unwrap().full_path == f;
                 ui.get_files().set_row_data(x, a);
             }
-            ui.invoke_set_open_file(SharedString::from(f.clone()), SharedString::from(db.get_contents(f.as_str())));
-            CURRENT_FILE = Some(f.clone());
-            state.last_open_file = Some(f.clone());
+            if let Some(FileType::Text(ref mut text_file)) = db.get_file(f.as_str()) {
+                ui.invoke_set_open_file(SharedString::from(f.clone()), SharedString::from(text_file.get_contents()));
+                CURRENT_FILE = Some(f.clone());
+                state.last_open_file = Some(f.clone());
+            }
         } else {
             CURRENT_FILE = None;
         }

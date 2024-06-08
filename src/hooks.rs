@@ -61,11 +61,11 @@ pub fn handle_close(db: Rc<RefCell<Database>>, state: Rc<RefCell<State>>, ui_han
     ui_handle.unwrap().on_close(move || {
         let ui = ui_handle.unwrap();
         let mut binding = db.borrow_mut();
-        ui.window().hide();
+        ui.window().hide().expect("Failed to hide window");
         println!("Window close requested");
         open_file(&mut binding, &mut state.borrow_mut(), ui_handle.clone(), None);
         binding.save_all().expect("Failed to save all files on exit!");
-        state.borrow().save();
+        state.borrow().save().expect("Failed to save state");
     });
 }
 
@@ -76,7 +76,7 @@ pub fn handle_close_popups(ui_handle: Weak<AppWindow>) {
     });
 }
 
-pub fn handle_change_background_image(db: Rc<RefCell<Database>>, state: Rc<RefCell<State>>, ui_handle: Weak<AppWindow>) {
+pub fn handle_change_background_image(state: Rc<RefCell<State>>, ui_handle: Weak<AppWindow>) {
     ui_handle.unwrap().on_open_background_image_selection_dialog(move || {
         let ui = ui_handle.unwrap();
         if let Some(path) = FileDialog::new().add_filter("Images",&vec!["png", "jpg"]).pick_file() {
